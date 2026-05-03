@@ -4,6 +4,27 @@ import numpy as np
 import joblib
 import pandas as pd
 import matplotlib.pyplot as plt
+# -------------------------------
+# AUTH SYSTEM
+# -------------------------------
+USER_FILE = "users.csv"
+
+def load_users():
+    if os.path.exists(USER_FILE):
+        return pd.read_csv(USER_FILE)
+    else:
+        return pd.DataFrame(columns=["username", "password"])
+
+def save_user(username, password):
+    df = load_users()
+    new_user = pd.DataFrame([[username, password]], columns=["username", "password"])
+    df = pd.concat([df, new_user], ignore_index=True)
+    df.to_csv(USER_FILE, index=False)
+
+def authenticate(username, password):
+    df = load_users()
+    user = df[(df["username"] == username) & (df["password"] == password)]
+    return not user.empty
 
 def save_transaction(username, prob, prediction):
     file = f"{username}_history.csv"
@@ -54,6 +75,11 @@ if "prediction" not in st.session_state:
     st.session_state.prediction = None
 if "prob" not in st.session_state:
     st.session_state.prob = None
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "username" not in st.session_state:
+    st.session_state.username = None
 
 # -------------------------------
 # CUSTOM CSS
@@ -127,7 +153,43 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+# -------------------------------
+# LOGIN PAGE
+# -------------------------------
+if not st.session_state.logged_in:
 
+    st.markdown('<div class="brand-text">💳 SafeGuard AI</div>', unsafe_allow_html=True)
+
+    tab1, tab2 = st.tabs(["Login", "Sign Up"])
+
+    # LOGIN
+    with tab1:
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+
+        if st.button("Login"):
+            if authenticate(username, password):
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.success("Login successful")
+                st.rerun()
+            else:
+                st.error("Invalid credentials")
+
+    # SIGNUP
+    with tab2:
+        new_user = st.text_input("Create Username")
+        new_pass = st.text_input("Create Password", type="password")
+
+        if st.button("Sign Up"):
+            df = load_users()
+            if new_user in df["username"].values:
+                st.warning("User already exists")
+            else:
+                save_user(new_user, new_pass)
+                st.success("Account created. Please login.")
+
+    st.stop()
 
 # -------------------------------
 # SIDEBAR
@@ -145,7 +207,16 @@ with st.sidebar:
             ML-based Credit Card Fraud Detection System
         </div>
     """, unsafe_allow_html=True)
-    username = st.text_input("Enter Username")
+
+    st.markdown(f"👤 {st.session_state.username}")
+
+    if st.button("Logout"):
+        st.session_state.logged_in = False
+        st.session_state.username = None
+        st.session_state.history = []
+        st.rerun()
+
+    
     
     st.markdown("---")
     
@@ -159,12 +230,10 @@ with st.sidebar:
     
     app_mode = st.radio("", ["Check Transaction", "Analytics", "About Model"], label_visibility="collapsed")
 
-    if username:
-        if "history" not in st.session_state:
-            st.session_state.history = []
-    # load previous data from CSV
-        df_old = load_history(username)
-        st.session_state.history = df_old.to_dict("records")
+username = st.session_state.username
+
+df_old = load_history(username)
+st.session_state.history = df_old.to_dict("records") 
 
 # -------------------------------
 # MAIN: CHECK TRANSACTION
@@ -342,15 +411,79 @@ elif app_mode == "Analytics":
 # ABOUT PAGE
 # -------------------------------
 elif app_mode == "About Model":
-    st.header("About SafeGuard AI")
-    st.markdown("""
-    ### 🧠 Model Info
-    - PCA-based dataset (V1–V28 + Time + Amount)
-    - Trained for fraud detection
 
-    ### ⚙️ Tech Stack
-    - Streamlit
-    - Scikit-learn
-    - Joblib
-    """)
+    st.header("💳 About SafeGuard AI")
+
+    st.markdown("""
+## 🧠 Project Overview
+SafeGuard AI is a machine learning-based fraud detection system designed to identify suspicious credit card transactions in real time.  
+It simulates how financial institutions monitor and flag potentially fraudulent activities using predictive models and transaction analytics.
+
+---
+
+## ⚙️ How the System Works
+1. **User Input:**  
+   The system accepts 30 features representing a transaction:
+   - Time  
+   - PCA-transformed features (V1–V28)  
+   - Amount  
+
+2. **Data Processing:**  
+   Inputs are validated to ensure realistic and meaningful values before prediction.
+
+3. **Prediction Engine:**  
+   A trained machine learning model evaluates the transaction and outputs:
+   - Fraud probability score  
+   - Final classification (Safe / Fraud)
+
+4. **Storage:**  
+   Each transaction is stored in a user-specific CSV file, enabling persistent history tracking.
+
+5. **Analytics Dashboard:**  
+   The system visualizes:
+   - Fraud vs Safe distribution  
+   - Risk levels (Low / Medium / High)  
+   - Risk trends over time  
+
+---
+
+## 📊 Machine Learning Details
+- Dataset uses **Principal Component Analysis (PCA)** for privacy protection  
+- Original features are transformed into V1–V28  
+- Model trained on highly **imbalanced data** (fraud is rare)  
+- Probability-based classification is used instead of hard rules  
+
+---
+
+## 🎯 Key Features
+- 🔐 User authentication (Login/Signup system)  
+- 💾 Persistent transaction storage (CSV-based)  
+- 📊 Real-time analytics dashboard  
+- ⚠️ Fraud risk probability scoring  
+- 🧪 Input validation to prevent invalid predictions  
+
+---
+
+## 🏗️ Tech Stack
+- **Frontend:** Streamlit  
+- **Backend:** Scikit-learn  
+- **Storage:** CSV (file-based persistence)  
+- **Visualization:** Matplotlib  
+
+---
+
+## 🚀 Future Enhancements
+- 🔐 Secure password hashing (bcrypt)  
+- ☁️ Cloud database integration (Firebase / MongoDB)  
+- 📊 Advanced dashboards using Plotly  
+- 🤖 Deep learning models for improved accuracy  
+- 📱 Mobile-responsive UI  
+
+---
+
+## 💡 Conclusion
+SafeGuard AI demonstrates how machine learning can be applied to detect fraud in financial systems.  
+It combines prediction, data storage, and analytics into a single interactive application, mimicking real-world fraud monitoring tools used in banking.
+""")
+
 
